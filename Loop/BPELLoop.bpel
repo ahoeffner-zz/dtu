@@ -1,0 +1,133 @@
+<?xml version = "1.0" encoding = "UTF-8" ?>
+<!--
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  Oracle JDeveloper BPEL Designer 
+  
+  Created: Wed Mar 05 10:33:56 CET 2014
+  Author:  aho
+  Purpose: Synchronous BPEL Process
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+-->
+<process name="BPELLoop"
+         targetNamespace="http://xmlns.oracle.com/ModerniseringsStyrelsen/Loop/BPELLoop"
+         xmlns="http://schemas.xmlsoap.org/ws/2003/03/business-process/"
+         xmlns:client="http://xmlns.oracle.com/ModerniseringsStyrelsen/Loop/BPELLoop"
+         xmlns:ora="http://schemas.oracle.com/xpath/extension"
+         xmlns:bpelx="http://schemas.oracle.com/bpel/extension"
+         xmlns:ns1="http://oracle.com/sca/soapservice/ModerniseringsStyrelsen/Loop/Loop"
+         xmlns:bpws="http://schemas.xmlsoap.org/ws/2003/03/business-process/"
+         xmlns:xp20="http://www.oracle.com/XSL/Transform/java/oracle.tip.pc.services.functions.Xpath20"
+         xmlns:bpel2="http://docs.oasis-open.org/wsbpel/2.0/process/executable"
+         xmlns:oraext="http://www.oracle.com/XSL/Transform/java/oracle.tip.pc.services.functions.ExtFunc"
+         xmlns:dvm="http://www.oracle.com/XSL/Transform/java/oracle.tip.dvm.LookupValue"
+         xmlns:hwf="http://xmlns.oracle.com/bpel/workflow/xpath"
+         xmlns:ids="http://xmlns.oracle.com/bpel/services/IdentityService/xpath"
+         xmlns:bpm="http://xmlns.oracle.com/bpmn20/extensions"
+         xmlns:xdk="http://schemas.oracle.com/bpel/extension/xpath/function/xdk"
+         xmlns:xref="http://www.oracle.com/XSL/Transform/java/oracle.tip.xref.xpath.XRefXPathFunctions"
+         xmlns:ldap="http://schemas.oracle.com/xpath/extension/ldap"
+         xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+         xmlns:ns2="http://www.example.org">
+
+  <!-- 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      PARTNERLINKS                                                      
+      List of services participating in this BPEL process               
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  --> 
+  <partnerLinks>
+    <!-- 
+      The 'client' role represents the requester of this service. It is 
+      used for callback. The location and correlation information associated
+      with the client role are automatically set using WS-Addressing.
+    -->
+    <partnerLink name="client" partnerLinkType="ns1:BPELLoop" myRole="loop"/>
+  </partnerLinks>
+
+  <!-- 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+      VARIABLES                                                        
+      List of messages and XML documents used within this BPEL process 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  -->
+  <variables>
+    <variable name="inputVariable"  messageType="ns1:requestMessage"/>
+    <variable name="outputVariable" messageType="ns1:replyMessage"/>
+
+    <variable name="count" type="xsd:int"/>
+    <variable name="i"     type="xsd:int"/>
+    <variable name="index" type="xsd:string"/>
+  </variables>
+
+  <!-- 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+     ORCHESTRATION LOGIC                                               
+     Set of activities coordinating the flow of messages across the    
+     services integrated within this business process                  
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  -->
+  <sequence name="main">
+
+    <receive name="Receive" partnerLink="client" portType="ns1:loop"
+             operation="loop" variable="inputVariable" createInstance="yes"/>
+
+    <assign name="AssignReplyPerson">
+      <copy>
+        <from variable="inputVariable" part="payload"
+              query="/ns2:Person1/ns2:FirstName"/>
+        <to variable="outputVariable" part="payload"
+            query="/ns2:Person2/ns2:FirstName"/>
+      </copy>
+      <copy>
+        <from variable="inputVariable" part="payload"
+              query="/ns2:Person1/ns2:LastName"/>
+        <to variable="outputVariable" part="payload"
+            query="/ns2:Person2/ns2:LastName"/>
+      </copy>
+      <copy>
+        <from expression='""'/>
+        <to variable="outputVariable" part="payload"
+            query="/ns2:Person2/ns2:NickNames"/>
+      </copy>
+    </assign>
+
+    <assign name="AssignCounters">
+      <copy>
+        <from expression="count(bpws:getVariableData('inputVariable','payload','/ns2:Person1/ns2:NickName'))"/>
+        <to variable="count"/>
+      </copy>
+      <copy>
+        <from expression="1"/>
+        <to variable="i"/>
+      </copy>
+    </assign>
+
+    <while name="ForAllNickNames"
+           condition="bpws:getVariableData('i') &lt;= bpws:getVariableData('count')">
+      <sequence name="LoopSequence">
+
+        <assign name="Concat">
+          <copy>
+            <from expression="concat('/ns2:Person1/ns2:NickName[',bpws:getVariableData('i'),']')"/>
+            <to variable="index"/>
+          </copy>
+          <copy>
+            <from expression="concat(bpws:getVariableData('outputVariable','payload','/ns2:Person2/ns2:NickNames'),bpws:getVariableData('inputVariable','payload',bpws:getVariableData('index')),' ')"/>
+            <to variable="outputVariable" part="payload"
+                query="/ns2:Person2/ns2:NickNames"/>
+          </copy>
+
+        </assign>
+        <assign name="Next">
+          <copy>
+            <from expression=" bpws:getVariableData('i') + 1"/>
+            <to variable="i"/>
+          </copy>
+        </assign>
+
+      </sequence>
+    </while>
+
+    <reply name="Reply" partnerLink="client" portType="ns1:loop" operation="loop" variable="outputVariable"/>
+  </sequence>
+</process>

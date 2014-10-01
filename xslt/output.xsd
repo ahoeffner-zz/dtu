@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="US-ASCII" ?>
+
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://www.oes.dk"
+            xmlns:tns="http://www.oes.dk"
+            targetNamespace="http://www.oes.dk"
+            elementFormDefault="qualified">
+            
+  <xsd:complexType name="OutputType">
+    <xsd:sequence>
+      <xsd:element name="OES_A" type="xsd:int"/>
+      <xsd:element name="OES_B" type="xsd:string"/>
+      <xsd:element name="OES_C" type="xsd:date"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  
+  <xsd:element name="Output" type="tns:OutputType"/>
+</xsd:schema>

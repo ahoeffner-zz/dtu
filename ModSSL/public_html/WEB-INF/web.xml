@@ -1,0 +1,84 @@
+<?xml version = '1.0' encoding = 'US-ASCII'?>
+
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
+         version="2.5" xmlns="http://java.sun.com/xml/ns/javaee">
+
+  <display-name>modssl</display-name>
+  <description>moderniserings styrelsens ssl</description>
+
+  <context-param>
+    <param-name>Test</param-name>
+    <param-value>true</param-value>
+  </context-param>
+
+  <context-param>
+    <param-name>Debug</param-name>
+    <param-value>false</param-value>
+  </context-param>
+
+  <context-param>
+    <param-name>Host</param-name>
+    <param-value>dkcscd11.csc.dk:872</param-value>
+  </context-param>
+
+  <context-param>
+    <param-name>KeyStore</param-name>
+    <param-value>/drift/SR151WX.P12</param-value>
+  </context-param>
+
+  <context-param>
+    <param-name>KeyStoreType</param-name>
+    <param-value>PKCS12</param-value>
+  </context-param>
+
+  <context-param>
+    <param-name>KeyStorePassword</param-name>
+    <param-value>CRT151WX</param-value>
+  </context-param>
+
+  <context-param>
+    <param-name>TrustStore</param-name>
+    <param-value>/drift/bpel1applu.jks</param-value>
+  </context-param>
+
+  <context-param>
+    <param-name>TrustStoreType</param-name>
+    <param-value>JKS</param-value>
+  </context-param>
+
+  <context-param>
+    <param-name>TrustStorePassword</param-name>
+    <param-value>hevier89</param-value>
+  </context-param>
+  <filter>
+    <filter-name>JpsFilter</filter-name>
+    <filter-class>oracle.security.jps.ee.http.JpsFilter</filter-class>
+    <init-param>
+      <param-name>enable.anonymous</param-name>
+      <param-value>true</param-value>
+    </init-param>
+  </filter>
+  <filter-mapping>
+    <filter-name>JpsFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+    <dispatcher>FORWARD</dispatcher>
+    <dispatcher>REQUEST</dispatcher>
+    <dispatcher>INCLUDE</dispatcher>
+  </filter-mapping>
+  <servlet>
+    <servlet-name>SSL</servlet-name>
+    <servlet-class>modssl.SSL</servlet-class>
+  </servlet>
+
+  <servlet-mapping>
+    <servlet-name>SSL</servlet-name>
+    <url-pattern>/</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>SSL</servlet-name>
+    <url-pattern>/*</url-pattern>
+  </servlet-mapping>
+
+</web-app>

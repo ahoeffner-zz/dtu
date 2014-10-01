@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<Input xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.database.dk input.xsd"
+       xmlns="http://www.database.dk">
+       
+  <DB_A>123</DB_A>
+  <DB_B>Alex</DB_B>
+  <DB_C>2001-09-11</DB_C>
+
+</Input>

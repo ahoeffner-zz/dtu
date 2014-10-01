@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="US-ASCII" ?>
+
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns="http://www.database.dk"
+            xmlns:tns="http://www.database.dk"
+            targetNamespace="http://www.database.dk"
+            elementFormDefault="qualified">
+            
+  <xsd:complexType name="InputType">
+    <xsd:sequence>
+      <xsd:element name="DB_A" type="xsd:int"/>
+      <xsd:element name="DB_B" type="xsd:string"/>
+      <xsd:element name="DB_C" type="xsd:date"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  
+  <xsd:element name="Input" type="tns:InputType"/>
+</xsd:schema>
