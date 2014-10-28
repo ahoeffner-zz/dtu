@@ -1,18 +1,21 @@
 package modssl;
 
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Hashtable;
-import java.util.Enumeration;
 import javax.servlet.*;
-import javax.servlet.http.*;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Hashtable;
+import java.io.OutputStream;
+import javax.servlet.http.*;
+import java.util.Enumeration;
+import java.nio.charset.Charset;
 import java.io.ByteArrayOutputStream;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
+
+// ******** Weblogic **********
 //import weblogic.security.SSL.HostnameVerifier;
 //import weblogic.net.http.HttpsURLConnection;
 
@@ -52,12 +55,12 @@ public class SSL extends HttpServlet
 
     try
     {
-      Hashtable<String,String> config = getConfig();
-      
-      Enumeration hdrs = request.getHeaderNames();
+      Hashtable<String,String> config = getConfig();      
+      Enumeration<String> hdrs = request.getHeaderNames();
+
       while(hdrs.hasMoreElements())
       {
-        String name = (String) hdrs.nextElement();
+        String name  = hdrs.nextElement();
         String value = request.getHeader(name);
         headers.add(new String[] {name,value});
       }
@@ -85,7 +88,7 @@ public class SSL extends HttpServlet
       
       path = path + query;
       
-      StringBuffer buffer = new StringBuffer();
+      ByteArrayOutputStream buffer = new ByteArrayOutputStream();
   
       int read = 0;
       byte[] buf = new byte[4096];
@@ -93,19 +96,19 @@ public class SSL extends HttpServlet
       while(read >= 0)
       {
         read = in.read(buf);
-        if (read > 0) buffer.append(new String(buf,0,read));
+        if (read > 0) buffer.write(buf,0,read);
       }
 
-      String input = buffer.toString();
+      byte[] input = buffer.toByteArray();
 
       if (config.get("Test").equals("true"))
       {
         System.err.println("request : "+path+", content : ");
-        System.err.println(input);
+        System.err.println(new String(input,Charset.forName("utf-8")));
       }
 
       response.setContentType(CONTENT_TYPE);      
-      String output = invoke(config,headers,path,input);
+      byte[] output = invoke(config,headers,path,input);
       
       if (config.get("Test").equals("true"))
       {
@@ -113,8 +116,7 @@ public class SSL extends HttpServlet
         System.err.println(output);
       }
       
-      write(out,output);
-  
+      out.write(output);
       out.close();
       in.close();
     }
@@ -144,7 +146,7 @@ public class SSL extends HttpServlet
   }
   
 
-  private String invoke(Hashtable<String,String> config, ArrayList<String[]> headers, String path, String input) throws Exception
+  private byte[] invoke(Hashtable<String,String> config, ArrayList<String[]> headers, String path, byte[] input) throws Exception
   {  
     URL url = new URL(path);
 
@@ -175,7 +177,7 @@ public class SSL extends HttpServlet
     conn.setDoOutput(true);
 
     OutputStream out = conn.getOutputStream();
-    write(out,input);
+    out.write(input);
 
     InputStream  in  = conn.getInputStream();
     InputStream  err = conn.getErrorStream();
@@ -185,7 +187,7 @@ public class SSL extends HttpServlet
     if (conn.getResponseCode() < 200 || conn.getResponseCode() >= 300)
       in = err;
       
-    StringBuffer buffer = new StringBuffer();
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
     int read = 0;
     byte[] buf = new byte[4096];
@@ -193,10 +195,10 @@ public class SSL extends HttpServlet
     while(read >= 0)
     {
       read = in.read(buf);
-      if (read > 0) buffer.append(new String(buf,0,read));
+      if (read > 0) buffer.write(buf,0,read);
     }
     
-    String result = buffer.toString();
+    byte[] result = buffer.toByteArray();
     return(result);
   }
   
