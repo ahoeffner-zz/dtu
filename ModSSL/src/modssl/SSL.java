@@ -12,12 +12,13 @@ import javax.servlet.http.*;
 import java.util.Enumeration;
 import java.nio.charset.Charset;
 import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
+
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
-
-// ******** Weblogic **********
-//import weblogic.security.SSL.HostnameVerifier;
-//import weblogic.net.http.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import static modssl.SSLConfig.Config;
 
 
 /**
@@ -26,12 +27,14 @@ import javax.net.ssl.HttpsURLConnection;
  */
 public class SSL extends HttpServlet
 {
+  private Hashtable<String,Hashtable<String,String>> config;
   private static final String CONTENT_TYPE = "text/xml; charset=UTF-8";
   
-  
+    
   public void init(ServletConfig config) throws ServletException
   {
     super.init(config);
+    this.config = getConfig();
   }
   
 
@@ -55,7 +58,6 @@ public class SSL extends HttpServlet
 
     try
     {
-      Hashtable<String,String> config = getConfig();      
       Enumeration<String> hdrs = request.getHeaderNames();
 
       while(hdrs.hasMoreElements())
@@ -67,10 +69,7 @@ public class SSL extends HttpServlet
 
       in = request.getInputStream();
       out = response.getOutputStream();
-      
-      ServletContext context = getServletContext();
-      String host = context.getInitParameter("Host");
-      
+            
       String query = request.getQueryString();
       if (query == null) query = "";
       if (query.length() > 1) query = "?"+query;
@@ -78,14 +77,28 @@ public class SSL extends HttpServlet
       String path = request.getPathInfo();
       if (path == null) path = "";
       
+      String conf = "";
+      int pos = path.indexOf("/",1);
+      if (pos < 0) conf = path.substring(1);
+      else conf = path.substring(1,pos);
+      conf = conf.toLowerCase();
+      
+      System.out.println("configuration for "+conf+" = "+config.get(conf));
+
+      if (config.get(conf) == null) conf="/";
+      else path = path.substring(conf.length()+1);
+
+      Hashtable<String,String> config = this.config.get(conf);
+      String host = config.get("Host");
+      
       if (path.length() > 1)
       {
-        int pos = path.indexOf("/");
+        pos = path.indexOf("/");
         if (pos >= 0) path = path.substring(pos);
         path = "https://"+host+path;      
       }
       else path = "https://"+host;
-      
+            
       path = path + query;
       
       ByteArrayOutputStream buffer = new ByteArrayOutputStream();
@@ -100,21 +113,39 @@ public class SSL extends HttpServlet
       }
 
       byte[] input = buffer.toByteArray();
+      
+      try
+      {
+        FileOutputStream fout = new FileOutputStream("/tmp/messages.xml",true);
+        fout.write(input);
+        fout.write('\n');
+        fout.close();
+      }
+      catch(Exception ex) {ex.printStackTrace();}
 
-      if (config.get("Test").equals("true"))
+      if (config.get("Test") != null && config.get("Test").equals("true"))
       {
         System.err.println("request : "+path+", content : ");
         System.err.println(new String(input,Charset.forName("utf-8")));
       }
 
-      response.setContentType(CONTENT_TYPE);      
+      response.setContentType(CONTENT_TYPE);
       byte[] output = invoke(config,headers,path,input);
       
-      if (config.get("Test").equals("true"))
+      if (config.get("Test") != null && config.get("Test").equals("true"))
       {
         System.err.println("remote "+path+" returned : ");
         System.err.println(output);
       }
+      
+      try
+      {
+        FileOutputStream fout = new FileOutputStream("/tmp/modssl.xml",true);
+        fout.write(output);
+        fout.write('\n');
+        fout.close();
+      }
+      catch(Exception ex) {ex.printStackTrace();}
       
       out.write(output);
       out.close();
@@ -134,14 +165,23 @@ public class SSL extends HttpServlet
       "    <SOAP-ENV:Fault>\n" + 
       "     <faultcode xsi:type=\"xsd:string\">SOAP-ENV:Client</faultcode>\n" + 
       "     <faultstring xsi:type=\"xsd:string\">\n" + 
-              result + "\n" + 
+      "     <![CDATA[" + result + "]]>\n" + 
       "     </faultstring>\n" + 
       "    </SOAP-ENV:Fault>\n" + 
       "  </SOAP-ENV:Body>\n" + 
       "</SOAP-ENV:Envelope>";
       
+      try
+      {
+        FileOutputStream fout = new FileOutputStream("/tmp/modssl.xml",true);
+        fout.write(fault.getBytes());
+        fout.write('\n');
+        fout.close();
+      }
+      catch(Exception ex) {ex.printStackTrace();}
+      
       try{write(out,fault);}
-      catch(Exception ex) {e.printStackTrace();}
+      catch(Exception ex) {ex.printStackTrace();}
     }
   }
   
@@ -149,20 +189,12 @@ public class SSL extends HttpServlet
   private byte[] invoke(Hashtable<String,String> config, ArrayList<String[]> headers, String path, byte[] input) throws Exception
   {  
     URL url = new URL(path);
+    System.out.println("invoke "+path);
 
-    System.setProperty("javax.net.ssl.keyStore",config.get("KeyStore"));
-    System.setProperty("javax.net.ssl.keyStoreType",config.get("KeyStoreType"));
-    System.setProperty("javax.net.ssl.keyStorePassword",config.get("KeyStorePassword"));
-    System.setProperty("javax.net.ssl.trustStore",config.get("TrustStore"));
-    System.setProperty("javax.net.ssl.trustStoreType",config.get("TrustStoreType"));
-    System.setProperty("javax.net.ssl.trustStorePassword",config.get("TrustStorePassword"));
-    if (config.get("Debug").equals("true")) System.setProperty("javax.net.debug","SSL");
-    else System.clearProperty("javax.net.debug");
-    
     HostnameVerifier verifier = new AcceptVerifier();
     HttpsURLConnection conn = (HttpsURLConnection) url.openConnection();
     conn.setHostnameVerifier(verifier);
-    
+        
     conn.setRequestMethod("POST");
     
     for (int i = 0; i < headers.size(); i++)
@@ -175,6 +207,35 @@ public class SSL extends HttpServlet
 
     conn.setDoInput(true);
     conn.setDoOutput(true);
+    
+    String key = "KeyStore";
+    String file = config.get(key);
+
+    key = "KeyStoreType";
+    String type = config.get(key);
+
+    key = "KeyStorePassword";
+    String pass = config.get(key);
+
+    Config prv = new Config(file,type,pass);
+
+    key = "TrustStore";
+    file = config.get(key);
+
+    key = "TrustStoreType";
+    type = config.get(key);
+
+    key = "TrustStorePassword";
+    pass = config.get(key);
+
+    Config pub = new Config(file,type,pass);
+    
+    SSLConfig sslcfg = new SSLConfig(prv,pub);
+    SSLContext sslctx = sslcfg.getSSLContext();
+    SSLSocketFactory sslfac = sslctx.getSocketFactory();
+        
+    conn.setSSLSocketFactory(sslfac);
+    conn.connect();
 
     OutputStream out = conn.getOutputStream();
     out.write(input);
@@ -209,49 +270,43 @@ public class SSL extends HttpServlet
   }
   
   
-  private Hashtable<String,String> getConfig()
+  private Hashtable<String,Hashtable<String,String>> getConfig()
   {
-    Hashtable<String,String> config = 
-      new Hashtable<String,String>();
+    Hashtable<String,Hashtable<String,String>> config = 
+      new Hashtable<String,Hashtable<String,String>>();
     
     ServletContext context = getServletContext();
+    Enumeration<String> parms = context.getInitParameterNames();
     
-    String key = "Host";
-    String value = context.getInitParameter(key);
-    config.put(key,value);
-    
-    key = "KeyStore";
-    value = context.getInitParameter(key);
-    config.put(key,value);
-    
-    key = "KeyStoreType";
-    value = context.getInitParameter(key);
-    config.put(key,value);
-    
-    key = "KeyStorePassword";
-    value = context.getInitParameter(key);
-    config.put(key,value);    
-    
-    key = "TrustStore";
-    value = context.getInitParameter(key);
-    config.put(key,value);
-    
-    key = "TrustStoreType";
-    value = context.getInitParameter(key);
-    config.put(key,value);
-    
-    key = "TrustStorePassword";
-    value = context.getInitParameter(key);
-    config.put(key,value);    
-    
-    key = "Test";
-    value = context.getInitParameter(key);
-    config.put(key,value.toLowerCase());    
-    
-    key = "Debug";
-    value = context.getInitParameter(key);
-    config.put(key,value.toLowerCase());
+    while(parms.hasMoreElements())
+    {
+      String key = parms.nextElement();
+      if (key.indexOf('.') > 0)
+      {
+        String conf = key.substring(0,key.indexOf('.'));
+        conf = conf.toLowerCase();
+        Hashtable<String,String> named = config.get(conf);
+        if (named == null)
+        {
+          named = new Hashtable<String,String>();
+          config.put(conf,named);
+        }
+        
+        String entry = key.substring(key.indexOf('.')+1);
+        named.put(entry,context.getInitParameter(key));
+      }
+      else
+      {
+        Hashtable<String,String> named = config.get("/");
+        if (named == null)
+        {
+          named = new Hashtable<String,String>();
+          config.put("/",named);
+        }
+        named.put(key,context.getInitParameter(key));
+      }
+    }
     
     return(config);
-  }
+  }  
 }
